@@ -1,0 +1,7 @@
+db/*
+!db/.gitkeep
+local/
+
+.perl-version
+.*.swp
+

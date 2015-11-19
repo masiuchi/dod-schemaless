@@ -25,15 +25,22 @@ use warnings;
 
 use Test::More;
 
-my $sqlfile = './sql/sqlite/user.sql';
-unlink $TestUser::dbfile;
-`sqlite3 $TestUser::dbfile < $sqlfile`;
+my $table_file = './sql/sqlite/user.sql';
+my $index_file = './sql/sqlite/index_user.sql';
 
-subtest 'save' => sub {
+unlink $TestUser::dbfile;
+`sqlite3 $TestUser::dbfile < $table_file`;
+`sqlite3 $TestUser::dbfile < $index_file`;
+
+subtest 'insert' => sub {
     my $user = TestUser->new;
     $user->name('James');
     $user->age(30);
     ok( $user->save );
+
+    my @indexes = $user->index_package('name')->search( { id => $user->id } );
+    is( scalar @indexes,   1 );
+    is( $indexes[0]->name, 'James' );
 };
 
 subtest 'lookup' => sub {
@@ -41,6 +48,21 @@ subtest 'lookup' => sub {
     ok($user);
     is( $user->name, 'James' );
     is( $user->age,  30 );
+};
+
+subtest 'update' => sub {
+    {
+        my $user = TestUser->lookup(1);
+        ok($user);
+        $user->name('Akira');
+        $user->age(40);
+        ok( $user->save );
+    }
+
+    my $user = TestUser->lookup(1);
+    ok($user);
+    is( $user->name, 'Akira' );
+    is( $user->age,  40 );
 };
 
 subtest 'search' => sub {
@@ -69,6 +91,18 @@ subtest 'result' => sub {
         ok( eval { $_->isa('TestUser') } );
         ok( eval { $_->isa('Data::ObjectDriver::BaseObject::Schemaless') } );
     }
+};
+
+subtest 'remove' => sub {
+    my $user = TestUser->lookup(1);
+    ok($user);
+    my @indexes = $user->index_package('name')->search( { id => $user->id } );
+    is( scalar @indexes, 1 );
+
+    ok( $user->remove );
+    ok( !TestUser->lookup(1) );
+    @indexes = $user->index_package('name')->search( { id => $user->id } );
+    is( scalar @indexes, 0 );
 };
 
 done_testing;
